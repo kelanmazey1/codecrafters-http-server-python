@@ -10,6 +10,7 @@ def main():
     with socket.create_server(("localhost", 4221), reuse_port=True) as server:
         while True:
             conn, add = server.accept()  # wait for client
+            print(conn.getblocking())
 
             req = HTTPRequest.from_bytes(conn.recv(16384))
 
