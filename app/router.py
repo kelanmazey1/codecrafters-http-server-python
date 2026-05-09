@@ -10,7 +10,16 @@ class Router:
         self._routes: dict[tuple[str, HTTPRequestMethod], Callable] = {}
 
     def register(self, path: str, method: HTTPRequestMethod):
-        """Decorator to register handler for given path patterns."""
+        """Decorator to register handler for given path patterns.
+
+           Handlers ALWAYS expect params as the first arg
+           Handler can take params from path /foo/{bar} like so:
+
+           @Router.register("/foo/{bar}", HTTPRequestMethod.GET)
+           def hanlder(params):
+                print(params["bar"])
+           
+        """
         def inner(func: Callable) -> Callable:
             normalized = self._normalize(path)
             self._routes[(normalized, method)] = func
@@ -22,7 +31,7 @@ class Router:
         normalized = self._normalize(path)
 
         for patter_method_tup, func in self._routes.items():
-            pattern, _ = patter_method_tup # Just get the pattern to resolve any params
+            pattern, method = patter_method_tup # Just get the pattern to resolve any params
             resolves, params = self._resolve_params(pattern, normalized)
             if resolves:
                 return func, params

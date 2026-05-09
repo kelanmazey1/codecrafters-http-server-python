@@ -64,6 +64,7 @@ class HTTPHeaders:
     def from_bytes(cls, data: bytes) -> HTTPHeaders:
         lines = data.split(b"\r\n")  # Get lines field:value
         out = {}
+        
         for pair in lines:
             field_val = pair.split(b":", 1)  # Get list ["field", "value"]
 
@@ -72,9 +73,13 @@ class HTTPHeaders:
                     f"Split headers didn't result in only field and value: {[v for v in field_val]}"
                 )
 
-            out[field_val[0].decode("utf-8")] = field_val[1].decode(
+            
+            field = field_val[0].decode("utf-8").strip()
+            val = field_val[1].decode(
                 "utf-8"
-            )  # Add as {"field": "value"}, always returns as a string
+            ).strip()  # Add as {"field": "value"}, always returns as a string
+
+            out[field] = val
 
         return cls(out)
 
@@ -86,10 +91,13 @@ class HTTPHeaders:
 
         out.extend(b"\r\n")  # Final CRLF to know headers are over
         return out
+    
+    def get_header(self, field: str) -> str | None:
+        return self.headers.get(field)
 
 
 class HTTPBody:
-    def __init__(self, body: bytes):
+    def __init__(self, body: str | bytes):
         self.body = body
 
     def __repr__(self):
@@ -150,20 +158,26 @@ class HTTPRequest:
 
     @classmethod
     def from_bytes(cls, data: bytes) -> HTTPRequest:
-        lines = data.split(b"\r\n")
+        first_line, _, head_body = data.partition(b"\r\n")
+        stat_line = HTTPStatusLine(first_line)
 
-        if lines[-1] != b"":
-            raise ValueError("Input did not end with \\r\\n")
+        # if no head or body
+        if head_body == b"\r\n":
+            return cls(stat_line)
 
-        lines = lines[: len(lines)]  # Remove all but last as this should always be ""
-        status_line = HTTPStatusLine(lines[0])
-        headers = None if len(lines) < 2 else HTTPHeaders.from_bytes(lines[1])
-        body = None if len(lines) < 3 else HTTPBody(lines[2])
-
-        return cls(status_line, headers, body)
+        headers_block, _, body_block = head_body.partition(b"\r\n\r\n")
+        
+        return cls(stat_line, HTTPHeaders.from_bytes(headers_block), HTTPBody(body_block))
 
     def get_path(self) -> str:
         return self.status_line.get_path()
 
     def get_request_type(self) -> HTTPRequestMethod:
         return self.status_line.get_request_type()
+
+
+def get_ok_200_resp(h: HTTPHeaders | None = None, b: HTTPBody | None = None) -> HTTPResponse:
+    return  HTTPResponse(response_line=HTTPResponseLine(code=200, reason_phrase="OK"), headers=h, body=b)
+
+def get_bad_400_resp(h: HTTPHeaders | None = None, b: HTTPBody | None = None) -> HTTPResponse:
+    return HTTPResponse(response_line=HTTPResponseLine(code=400, reason_phrase="Bad Request"), headers=h, body=b)

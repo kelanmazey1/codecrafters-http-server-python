@@ -9,13 +9,13 @@ def main():
 
     with socket.create_server(("localhost", 4221), reuse_port=True) as server:
         while True:
-            conn, add = server.accept() # wait for client
-        
+            conn, add = server.accept()  # wait for client
+
             req = HTTPRequest.from_bytes(conn.recv(16384))
 
             router.collect_handlers()
             r = router.get_router()
-            
+
             handler_tup = r.resolve(req.get_path())
 
             # If path can't be resolved by router
@@ -23,12 +23,15 @@ def main():
                 resp = HTTPResponse(response_line=HTTPResponseLine(404, "Not Found"))
             else:
                 handler, params = handler_tup
-                resp = handler(params)
+                try:
+                    resp = handler(params, req)
+                except TypeError as err:
+                    raise TypeError(
+                        "Handlers must have the function signature handler(params: dict[str, Any], req: HTTPRequest) -> HTTPResponse"
+                    ) from err
 
             conn.send(resp.to_bytes())
             conn.send(b"\r\n")
-
-
 
 
 if __name__ == "__main__":
