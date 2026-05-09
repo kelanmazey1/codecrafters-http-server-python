@@ -1,5 +1,6 @@
 import socket  # noqa: F401
-from app.request import HTTPRequest, HTTPResponse, HTTPResponseLine
+from app.messages import HTTPRequest, HTTPResponse, HTTPResponseLine
+import app.router as router
 
 
 def main():
@@ -10,16 +11,22 @@ def main():
         while True:
             conn, add = server.accept() # wait for client
         
-            req = HTTPRequest.from_tcp(conn.recv(16384))
-            if req.get_path().exists():
-                resp = HTTPResponse(response_line=HTTPResponseLine(200, "OK"))
-            else:
+            req = HTTPRequest.from_bytes(conn.recv(16384))
+
+            router.collect_handlers()
+            r = router.get_router()
+            
+            handler_tup = r.resolve(req.get_path())
+
+            # If path can't be resolved by router
+            if handler_tup is None:
                 resp = HTTPResponse(response_line=HTTPResponseLine(404, "Not Found"))
-            conn.send(resp.get_response_line_bytes())
+            else:
+                handler, params = handler_tup
+                resp = handler(params)
+
+            conn.send(resp.to_bytes())
             conn.send(b"\r\n")
-
-
-
 
 
 
