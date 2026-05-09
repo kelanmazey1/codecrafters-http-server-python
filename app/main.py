@@ -1,4 +1,5 @@
 import socket  # noqa: F401
+import threading
 from app.messages import HTTPRequest, HTTPResponse, HTTPResponseLine
 import app.router as router
 
@@ -10,30 +11,31 @@ def main():
     with socket.create_server(("localhost", 4221), reuse_port=True) as server:
         while True:
             conn, add = server.accept()  # wait for client
-            print(conn.getblocking())
 
-            req = HTTPRequest.from_bytes(conn.recv(16384))
+            threading.Thread(target=req_resp_exchange, args=(conn,), daemon=True).start()
 
-            router.collect_handlers()
-            r = router.get_router()
+def req_resp_exchange(conn: socket.socket):
+    req = HTTPRequest.from_bytes(conn.recv(16384))
 
-            handler_tup = r.resolve(req.get_path())
+    router.collect_handlers()
+    r = router.get_router()
 
-            # If path can't be resolved by router
-            if handler_tup is None:
-                resp = HTTPResponse(response_line=HTTPResponseLine(404, "Not Found"))
-            else:
-                handler, params = handler_tup
-                try:
-                    resp = handler(params, req)
-                except TypeError as err:
-                    raise TypeError(
-                        "Handlers must have the function signature handler(params: dict[str, Any], req: HTTPRequest) -> HTTPResponse"
-                    ) from err
+    handler_tup = r.resolve(req.get_path())
 
-            conn.send(resp.to_bytes())
-            conn.send(b"\r\n")
+    # If path can't be resolved by router
+    if handler_tup is None:
+        resp = HTTPResponse(response_line=HTTPResponseLine(404, "Not Found"))
+    else:
+        handler, params = handler_tup
+        try:
+            resp = handler(params, req)
+        except TypeError as err:
+            raise TypeError(
+                "Handlers must have the function signature handler(params: dict[str, Any], req: HTTPRequest) -> HTTPResponse"
+            ) from err
 
+    conn.send(resp.to_bytes())
+    conn.send(b"\r\n")
 
 if __name__ == "__main__":
     main()

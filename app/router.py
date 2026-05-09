@@ -33,6 +33,7 @@ class Router:
         for patter_method_tup, func in self._routes.items():
             pattern, method = patter_method_tup # Just get the pattern to resolve any params
             resolves, params = self._resolve_params(pattern, normalized)
+
             if resolves:
                 return func, params
         
@@ -40,7 +41,7 @@ class Router:
 
             
     def _resolve_params(self, pattern, path: str) -> tuple[bool, dict[str, Any]]:
-        """Returns true if path can be resolved and any {params} in a pattern for a given path.
+        """Returns true if path can be resolved and any {params} in a pattern for a given path. Can be {}
            ie. pattern=/foo/{param1} path=/foo/bar -> {param1: bar}
         """
 
