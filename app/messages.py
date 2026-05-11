@@ -33,8 +33,9 @@ class HTTPStatusLine:
             )
 
     def get_path(self) -> str:
+        """Get's path from self.status_line will always return index.html -> /index.html"""
         str_parts = self.status_line.decode("utf-8").split(sep=" ")
-        return str_parts[1]
+        return "/" + str_parts[1].strip("/")
 
 
 class HTTPResponseLine:
@@ -178,6 +179,9 @@ class HTTPRequest:
 
 def get_ok_200_resp(h: HTTPHeaders | None = None, b: HTTPBody | None = None) -> HTTPResponse:
     return  HTTPResponse(response_line=HTTPResponseLine(code=200, reason_phrase="OK"), headers=h, body=b)
+
+def get_not_found_404_resp(h: HTTPHeaders | None = None, b: HTTPBody | None = None) -> HTTPResponse:
+    return  HTTPResponse(response_line=HTTPResponseLine(code=404, reason_phrase="Not Found"), headers=h, body=b)
 
 def get_bad_400_resp(h: HTTPHeaders | None = None, b: HTTPBody | None = None) -> HTTPResponse:
     return HTTPResponse(response_line=HTTPResponseLine(code=400, reason_phrase="Bad Request"), headers=h, body=b)

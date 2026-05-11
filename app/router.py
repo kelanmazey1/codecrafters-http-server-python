@@ -1,6 +1,7 @@
 """Module to handle registering routes and handlers """
 import re
 from typing import Callable, Any
+from pathlib import Path
 from app.messages import HTTPRequestMethod
 
 
@@ -92,3 +93,4 @@ def get_router() -> Router:
 def collect_handlers():
     """Importing handlers module registers all handlers"""
     import app.handlers #noqa
+
