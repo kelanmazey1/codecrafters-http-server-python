@@ -27,7 +27,7 @@ class Router:
             return func
         return inner
     
-    def resolve(self, path: str) -> tuple[Callable, dict] | None:
+    def resolve(self, path: str, req_method: HTTPRequestMethod) -> tuple[Callable, dict] | None:
         """Attempt to resolve a path to a registered handler and params. Returns callable and corresponding params."""
         normalized = self._normalize(path)
 
@@ -35,7 +35,7 @@ class Router:
             pattern, method = patter_method_tup # Just get the pattern to resolve any params
             resolves, params = self._resolve_params(pattern, normalized)
 
-            if resolves:
+            if resolves and method == req_method:
                 return func, params
         
         return None

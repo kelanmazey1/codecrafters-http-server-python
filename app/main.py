@@ -33,7 +33,7 @@ def req_resp_exchange(conn: socket.socket):
     req = HTTPRequest.from_bytes(conn.recv(16384))
 
     r = router.get_router()
-    handler_tup = r.resolve(req.get_path())
+    handler_tup = r.resolve(req.get_path(), req.get_request_type())
 
     # If path can't be resolved by router
     if handler_tup is None:

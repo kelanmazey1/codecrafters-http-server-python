@@ -27,11 +27,9 @@ def handle_root(params: dict[str, Any], req: HTTPRequest) -> HTTPResponse:
 def get_files(params: dict[str, Any], req: HTTPRequest) -> HTTPResponse:
 
     root = file_tree.get_root()
-    print("in the file handler")
     file_name = params["file_name"]
 
     file_path = root / file_name
-    print(file_path)
 
     if file_path.exists():
         with open(file_path, "rb") as file:
@@ -53,21 +51,20 @@ def make_files(params: dict[str, Any], req: HTTPRequest) -> HTTPResponse:
     root = file_tree.get_root()
     file_name = params["file_name"]
 
+    print("in the post handler")
     if not req.body:
         return get_bad_400_resp()
 
     file_path = root / file_name
 
-    if file_path.exists():
+    file_path.touch(exist_ok=True)
 
-        with open(file_path, "wb") as file:
-            file.write(req.body.to_bytes())
+    with open(file_path, "wb") as file:
+        file.write(req.body.to_bytes())
 
-        return HTTPResponse(
-            response_line=HTTPResponseLine(code=201, reason_phrase="Created"),
-        )
-    else:
-        return get_not_found_404_resp()
+    return HTTPResponse(
+        response_line=HTTPResponseLine(code=201, reason_phrase="Created"),
+    )
 
 @r.register("/echo/{message}", HTTPRequestMethod.GET)
 def handle_echo(params: dict[str, Any], req: HTTPRequest) -> HTTPResponse:
