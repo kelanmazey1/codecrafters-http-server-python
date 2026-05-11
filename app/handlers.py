@@ -4,6 +4,7 @@ from typing import Any
 from app.messages import (
     HTTPRequestMethod,
     HTTPResponse,
+    HTTPResponseLine,
     HTTPBody,
     HTTPHeaders,
     HTTPRequest,
@@ -23,7 +24,7 @@ def handle_root(params: dict[str, Any], req: HTTPRequest) -> HTTPResponse:
     return get_ok_200_resp()
 
 @r.register("/files/{file_name}", HTTPRequestMethod.GET)
-def handle_files(params: dict[str, Any], req: HTTPRequest) -> HTTPResponse:
+def get_files(params: dict[str, Any], req: HTTPRequest) -> HTTPResponse:
 
     root = file_tree.get_root()
     print("in the file handler")
@@ -42,6 +43,28 @@ def handle_files(params: dict[str, Any], req: HTTPRequest) -> HTTPResponse:
                 "Content-Length": len(f),
             }),
             b=HTTPBody(f)
+        )
+    else:
+        return get_not_found_404_resp()
+
+@r.register("/files/{file_name}", HTTPRequestMethod.POST)
+def make_files(params: dict[str, Any], req: HTTPRequest) -> HTTPResponse:
+
+    root = file_tree.get_root()
+    file_name = params["file_name"]
+
+    if not req.body:
+        return get_bad_400_resp()
+
+    file_path = root / file_name
+
+    if file_path.exists():
+
+        with open(file_path, "wb") as file:
+            file.write(req.body.to_bytes())
+
+        return HTTPResponse(
+            response_line=HTTPResponseLine(code=201, reason_phrase="Created"),
         )
     else:
         return get_not_found_404_resp()
