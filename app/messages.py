@@ -1,5 +1,7 @@
 from enum import Enum, auto
 from typing import Any
+import socket
+import app.router as router
 
 PROTOCOL = "HTTP/1.1"
 
@@ -95,7 +97,21 @@ class HTTPHeaders:
     
     def get_header(self, field: str) -> str | None:
         return self.headers.get(field)
+    
+    def set_header(self, field: str, value: Any) -> None:
+        self.headers[field] = value
+    
+    def validate_field(self, valid_values: tuple[str], field_name: str) -> str | None:
+        """Validate value of self.field_name against valid_values, returns either validated field value or None if field_name not present
+        
+        Throws ValueError if self.field_name isn't valid.
+        """
 
+        field = self.get_header(field_name)
+
+        if field in valid_values:
+            return field
+        return None
 
 class HTTPBody:
     def __init__(self, body: str | bytes):
@@ -185,3 +201,25 @@ def get_not_found_404_resp(h: HTTPHeaders | None = None, b: HTTPBody | None = No
 
 def get_bad_400_resp(h: HTTPHeaders | None = None, b: HTTPBody | None = None) -> HTTPResponse:
     return HTTPResponse(response_line=HTTPResponseLine(code=400, reason_phrase="Bad Request"), headers=h, body=b)
+
+
+def req_resp_exchange(conn: socket.socket):
+    req = HTTPRequest.from_bytes(conn.recv(16384))
+
+    r = router.get_router() # Enclose the router in here, main program doesn't need to know
+    handler_tup = r.resolve(req.get_path(), req.get_request_type())
+
+    # If path can't be resolved by router
+    if handler_tup is None:
+        resp = HTTPResponse(response_line=HTTPResponseLine(404, "Not Found"))
+    else:
+        handler, params = handler_tup
+        try:
+            resp = handler(params, req)
+        except TypeError as err:
+            raise TypeError(
+                "Handlers must have the function signature handler(params: dict[str, Any], req: HTTPRequest) -> HTTPResponse"
+            ) from err
+
+    conn.send(resp.to_bytes())
+    conn.send(b"\r\n")

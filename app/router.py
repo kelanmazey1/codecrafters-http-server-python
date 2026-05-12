@@ -1,14 +1,13 @@
 """Module to handle registering routes and handlers """
 import re
 from typing import Callable, Any
-from pathlib import Path
 from app.messages import HTTPRequestMethod
+from app.handlers import HTTPHandler
 
 
 class Router:
-
     def __init__(self) -> None:
-        self._routes: dict[tuple[str, HTTPRequestMethod], Callable] = {}
+        self._routes: dict[tuple[str, HTTPRequestMethod], HTTPHandler] = {}
 
     def register(self, path: str, method: HTTPRequestMethod):
         """Decorator to register handler for given path patterns.
@@ -17,11 +16,11 @@ class Router:
            Handler can take params from path /foo/{bar} like so:
 
            @Router.register("/foo/{bar}", HTTPRequestMethod.GET)
-           def hanlder(params):
+           def handler(params dict[str, Any], r: HTTPRequestMethod) -> HTTPResponse:
                 print(params["bar"])
            
         """
-        def inner(func: Callable) -> Callable:
+        def inner(func: HTTPHandler) -> HTTPHandler:
             normalized = self._normalize(path)
             self._routes[(normalized, method)] = func
             return func
@@ -31,8 +30,8 @@ class Router:
         """Attempt to resolve a path to a registered handler and params. Returns callable and corresponding params."""
         normalized = self._normalize(path)
 
-        for patter_method_tup, func in self._routes.items():
-            pattern, method = patter_method_tup # Just get the pattern to resolve any params
+        for pattern_method_tup, func in self._routes.items():
+            pattern, method = pattern_method_tup # Just get the pattern to resolve any params
             resolves, params = self._resolve_params(pattern, normalized)
 
             if resolves and method == req_method:

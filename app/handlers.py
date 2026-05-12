@@ -1,6 +1,6 @@
 """All handlers for a given path and request type"""
 
-from typing import Any
+from typing import Any, Protocol
 from app.messages import (
     HTTPRequestMethod,
     HTTPResponse,
@@ -18,6 +18,16 @@ from app.directory import get_file_tree
 
 r = router.get_router()
 file_tree = get_file_tree()
+
+# TODO: mypy reocgnises that  decorated funcs are HTTPHandlers but doesn't error when you register foo() -> None:
+# Think it is just strictness but worth a play
+class HTTPHandler(Protocol):
+    """Defining protocol for signature, handler(params: dict[str, Any], req: HTTPRequest) -> HTTPResponse
+    This is probably overkill but wanted to use it"""
+    def __call__(self, params: dict[str, Any], req: HTTPRequest) -> HTTPResponse:
+        """Use call here so function can satisfy protocol"""
+        ...
+
 
 @r.register("/", HTTPRequestMethod.GET)
 def handle_root(params: dict[str, Any], req: HTTPRequest) -> HTTPResponse:
@@ -51,7 +61,6 @@ def make_files(params: dict[str, Any], req: HTTPRequest) -> HTTPResponse:
     root = file_tree.get_root()
     file_name = params["file_name"]
 
-    print("in the post handler")
     if not req.body:
         return get_bad_400_resp()
 
@@ -70,13 +79,24 @@ def make_files(params: dict[str, Any], req: HTTPRequest) -> HTTPResponse:
 def handle_echo(params: dict[str, Any], req: HTTPRequest) -> HTTPResponse:
     payload = params["message"]
 
-    return get_ok_200_resp(
-        HTTPHeaders(
+    # Each handler decides what encodings (or other headers ie. Content-Type) it accepts
+    resp_encoding = req.headers.validate_field(valid_encoding = (
+        "gzip",
+    ), field_name="Accept-Encoding")
+
+
+    resp_headers = HTTPHeaders(
             {
                 "Content-Type": "text/plain",
                 "Content-Length": len(payload),
             }
-        ),
+        )
+
+    if resp_encoding:
+        resp_headers.set_header("Content-Encoding", resp_encoding)
+
+    return get_ok_200_resp(
+        resp_headers,
         HTTPBody(payload),
     )
 
