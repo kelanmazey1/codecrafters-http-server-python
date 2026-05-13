@@ -1,5 +1,5 @@
 from enum import Enum, auto
-from typing import Any, Callable
+from typing import Any
 import socket
 import app.router as router
 
@@ -157,6 +157,8 @@ class HTTPResponse:
 
         if self.headers:
             out.extend(self.headers.to_bytes(encoding))
+        else:
+            out.extend(b"\r\n")
 
         if self.body:
             out.extend(self.body.to_bytes(encoding))
@@ -209,22 +211,24 @@ def get_bad_400_resp(h: HTTPHeaders | None = None, b: HTTPBody | None = None) ->
 
 
 def req_resp_exchange(conn: socket.socket):
-    req = HTTPRequest.from_bytes(conn.recv(16384))
+    conn_open = True
+    while conn_open:
 
-    r = router.get_router() # Enclose the router in here, main program doesn't need to know
-    handler_tup = r.resolve(req.get_path(), req.get_request_type())
+        req = HTTPRequest.from_bytes(conn.recv(16384))
 
-    # If path can't be resolved by router
-    if handler_tup is None:
-        resp = HTTPResponse(response_line=HTTPResponseLine(404, "Not Found"))
-    else:
-        handler, params = handler_tup
-        try:
-            resp = handler(params, req)
-        except TypeError as err:
-            raise TypeError(
-                "Handlers must have the function signature handler(params: dict[str, Any], req: HTTPRequest) -> HTTPResponse"
-            ) from err
+        r = router.get_router() # Enclose the router in here, main program doesn't need to know
+        handler_tup = r.resolve(req.get_path(), req.get_request_type())
 
-    conn.send(resp.to_bytes())
-    conn.send(b"\r\n")
+        # If path can't be resolved by router
+        if handler_tup is None:
+            resp = HTTPResponse(response_line=HTTPResponseLine(404, "Not Found"))
+        else:
+            handler, params = handler_tup
+            try:
+                resp = handler(params, req)
+            except TypeError as err:
+                raise TypeError(
+                    "Handlers must have the function signature handler(params: dict[str, Any], req: HTTPRequest) -> HTTPResponse"
+                ) from err
+
+        conn.send(resp.to_bytes())
