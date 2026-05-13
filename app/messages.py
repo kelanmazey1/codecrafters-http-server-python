@@ -1,5 +1,5 @@
 from enum import Enum, auto
-from typing import Any
+from typing import Any, Callable
 import socket
 import app.router as router
 
@@ -112,6 +112,8 @@ class HTTPHeaders:
         if field in valid_values:
             return field
         return None
+
+
 
 class HTTPBody:
     def __init__(self, body: str | bytes):

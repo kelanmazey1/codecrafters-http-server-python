@@ -1,6 +1,6 @@
 """All handlers for a given path and request type"""
 
-from typing import Any
+from typing import Any, Callable
 from app.messages import (
     HTTPRequestMethod,
     HTTPResponse,
@@ -13,15 +13,17 @@ from app.messages import (
     get_ok_200_resp,
 )
 import app.router as router
-import compression.gzip as gz
-from io import BytesIO
 from app.directory import get_file_tree
+from app.encoding import get_encoder_func
 
 
 
 r = router.get_router()
 file_tree = get_file_tree()
 
+
+def get_encoding(e: str) -> Callable | None:
+    """Returns callable which can encode bytes. """
 
 
 @r.register("/", HTTPRequestMethod.GET)
@@ -77,21 +79,24 @@ def handle_echo(params: dict[str, Any], req: HTTPRequest) -> HTTPResponse:
     if not req.headers:
         return get_bad_400_resp()
 
-    # Each handler decides what header values are valid
-    resp_encoding = req.headers.validate_field((
-        "gzip",
-    ), field_name="Accept-Encoding")
-
 
     resp_headers = HTTPHeaders(
             {
                 "Content-Type": "text/plain",
             }
         )
+    
+    encoding_specified = req.headers.get_header("Accept-Encoding")
+    if encoding_specified:
+        # Could be multiple codings specified
+        for encoding in encoding_specified.split(","):
 
-    if resp_encoding == "gzip":
-        resp_headers.set_header("Content-Encoding", resp_encoding)
-        body = HTTPBody(gz.compress(payload.encode("utf-8")))
+            encoder = get_encoder_func(encoding) # Valid encodings handled in separate module
+
+            if encoder:
+                body = HTTPBody(encoder.encode_data(payload))
+                resp_headers.set_header("Content-Encoding", encoding)
+
     else:
         body = HTTPBody(payload)
         
