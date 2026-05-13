@@ -87,7 +87,9 @@ def handle_echo(params: dict[str, Any], req: HTTPRequest) -> HTTPResponse:
         )
     
     encoding_specified = req.headers.get_header("Accept-Encoding")
-    if encoding_specified:
+    if not encoding_specified:
+        body = HTTPBody(payload)
+    else:
         # Could be multiple codings specified
         for encoding in encoding_specified.split(","):
 
@@ -96,9 +98,6 @@ def handle_echo(params: dict[str, Any], req: HTTPRequest) -> HTTPResponse:
             if encoder:
                 body = HTTPBody(encoder.encode_data(payload))
                 resp_headers.set_header("Content-Encoding", encoding)
-
-    else:
-        body = HTTPBody(payload)
         
     resp_headers.set_header("Content-Length", len(body))
 
