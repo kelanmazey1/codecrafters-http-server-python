@@ -1,6 +1,6 @@
 """All handlers for a given path and request type"""
 
-from typing import Any, Protocol
+from typing import Any
 from app.messages import (
     HTTPRequestMethod,
     HTTPResponse,
@@ -13,20 +13,15 @@ from app.messages import (
     get_ok_200_resp,
 )
 import app.router as router
+import compression.gzip as gz
+from io import BytesIO
 from app.directory import get_file_tree
+
 
 
 r = router.get_router()
 file_tree = get_file_tree()
 
-# TODO: mypy reocgnises that  decorated funcs are HTTPHandlers but doesn't error when you register foo() -> None:
-# Think it is just strictness but worth a play
-class HTTPHandler(Protocol):
-    """Defining protocol for signature, handler(params: dict[str, Any], req: HTTPRequest) -> HTTPResponse
-    This is probably overkill but wanted to use it"""
-    def __call__(self, params: dict[str, Any], req: HTTPRequest) -> HTTPResponse:
-        """Use call here so function can satisfy protocol"""
-        ...
 
 
 @r.register("/", HTTPRequestMethod.GET)
@@ -79,8 +74,11 @@ def make_files(params: dict[str, Any], req: HTTPRequest) -> HTTPResponse:
 def handle_echo(params: dict[str, Any], req: HTTPRequest) -> HTTPResponse:
     payload = params["message"]
 
-    # Each handler decides what encodings (or other headers ie. Content-Type) it accepts
-    resp_encoding = req.headers.validate_field(valid_encoding = (
+    if not req.headers:
+        return get_bad_400_resp()
+
+    # Each handler decides what header values are valid
+    resp_encoding = req.headers.validate_field((
         "gzip",
     ), field_name="Accept-Encoding")
 
@@ -88,16 +86,20 @@ def handle_echo(params: dict[str, Any], req: HTTPRequest) -> HTTPResponse:
     resp_headers = HTTPHeaders(
             {
                 "Content-Type": "text/plain",
-                "Content-Length": len(payload),
             }
         )
 
-    if resp_encoding:
+    if resp_encoding == "gzip":
         resp_headers.set_header("Content-Encoding", resp_encoding)
+        body = HTTPBody(gz.compress(payload.encode("utf-8")))
+    else:
+        body = HTTPBody(payload)
+        
+    resp_headers.set_header("Content-Length", len(body))
 
     return get_ok_200_resp(
         resp_headers,
-        HTTPBody(payload),
+        body,
     )
 
 

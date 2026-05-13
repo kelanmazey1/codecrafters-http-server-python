@@ -1,8 +1,17 @@
 """Module to handle registering routes and handlers """
 import re
-from typing import Callable, Any
-from app.messages import HTTPRequestMethod
-from app.handlers import HTTPHandler
+from typing import Callable, Any, Protocol
+from app.messages import HTTPRequestMethod, HTTPRequest, HTTPResponse
+
+
+# TODO: mypy reocgnises that  decorated funcs are HTTPHandlers but doesn't error when you register foo() -> None:
+# Think it is just strictness but worth a play
+class HTTPHandler(Protocol):
+    """Defining protocol for signature, handler(params: dict[str, Any], req: HTTPRequest) -> HTTPResponse
+    This is probably overkill but wanted to use it"""
+    def __call__(self, params: dict[str, Any], req: HTTPRequest) -> HTTPResponse:
+        """Use call here so function can satisfy protocol"""
+        ...
 
 
 class Router:

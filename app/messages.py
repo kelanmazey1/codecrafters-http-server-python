@@ -116,6 +116,9 @@ class HTTPHeaders:
 class HTTPBody:
     def __init__(self, body: str | bytes):
         self.body = body
+    
+    def __len__(self) -> int:
+        return len(self.body)
 
     def __repr__(self):
         return f"HTTPBody(body={self.body!r})"
