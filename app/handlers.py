@@ -17,18 +17,18 @@ from app.directory import get_file_tree
 from app.encoding import get_encoder_func
 
 
-
 r = router.get_router()
 file_tree = get_file_tree()
 
 
 def get_encoding(e: str) -> Callable | None:
-    """Returns callable which can encode bytes. """
+    """Returns callable which can encode bytes."""
 
 
 @r.register("/", HTTPRequestMethod.GET)
 def handle_root(params: dict[str, Any], req: HTTPRequest) -> HTTPResponse:
     return get_ok_200_resp()
+
 
 @r.register("/files/{file_name}", HTTPRequestMethod.GET)
 def get_files(params: dict[str, Any], req: HTTPRequest) -> HTTPResponse:
@@ -43,14 +43,17 @@ def get_files(params: dict[str, Any], req: HTTPRequest) -> HTTPResponse:
             f = file.read()
 
         return get_ok_200_resp(
-            h=HTTPHeaders({
-                "Content-Type": "application/octet-stream",
-                "Content-Length": len(f),
-            }),
-            b=HTTPBody(f)
+            h=HTTPHeaders(
+                {
+                    "Content-Type": "application/octet-stream",
+                    "Content-Length": len(f),
+                }
+            ),
+            b=HTTPBody(f),
         )
     else:
         return get_not_found_404_resp()
+
 
 @r.register("/files/{file_name}", HTTPRequestMethod.POST)
 def make_files(params: dict[str, Any], req: HTTPRequest) -> HTTPResponse:
@@ -72,6 +75,7 @@ def make_files(params: dict[str, Any], req: HTTPRequest) -> HTTPResponse:
         response_line=HTTPResponseLine(code=201, reason_phrase="Created"),
     )
 
+
 @r.register("/echo/{message}", HTTPRequestMethod.GET)
 def handle_echo(params: dict[str, Any], req: HTTPRequest) -> HTTPResponse:
     payload = params["message"]
@@ -79,28 +83,29 @@ def handle_echo(params: dict[str, Any], req: HTTPRequest) -> HTTPResponse:
     if not req.headers:
         return get_bad_400_resp()
 
-
     resp_headers = HTTPHeaders(
-            {
-                "Content-Type": "text/plain",
-            }
-        )
-    
+        {
+            "Content-Type": "text/plain",
+        }
+    )
+
     encoding_specified = req.headers.get_header("Accept-Encoding")
-    if not encoding_specified:
-        body = HTTPBody(payload)
-    else:
-        print("encoding specified")
+    encoding_applied = False
+    if encoding_specified:
         # Could be multiple codings specified
-        print(encoding_specified)
         for encoding in encoding_specified.split(","):
-
-            encoder = get_encoder_func(encoding) # Valid encodings handled in separate module
-
+            encoder = get_encoder_func(
+                encoding.strip()
+            )  # Valid encodings handled in separate module
             if encoder:
-                body = HTTPBody(encoder.encode_data(payload))
+                body = HTTPBody(encoder.encode_data(payload.encode("utf-8")))
                 resp_headers.set_header("Content-Encoding", encoding)
-        
+                encoding_applied = True
+                break
+
+    if not encoding_applied:
+        body = HTTPBody(payload)
+
     resp_headers.set_header("Content-Length", len(body))
 
     return get_ok_200_resp(
