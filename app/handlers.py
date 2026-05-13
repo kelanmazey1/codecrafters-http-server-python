@@ -90,10 +90,12 @@ def handle_echo(params: dict[str, Any], req: HTTPRequest) -> HTTPResponse:
     if not encoding_specified:
         body = HTTPBody(payload)
     else:
+        print("encoding specified")
         # Could be multiple codings specified
         for encoding in encoding_specified.split(","):
 
             encoder = get_encoder_func(encoding) # Valid encodings handled in separate module
+            print(encoder)
 
             if encoder:
                 body = HTTPBody(encoder.encode_data(payload))
