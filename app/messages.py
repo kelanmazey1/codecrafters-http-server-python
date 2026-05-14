@@ -211,24 +211,39 @@ def get_bad_400_resp(h: HTTPHeaders | None = None, b: HTTPBody | None = None) ->
 
 
 def req_resp_exchange(conn: socket.socket):
-    conn_open = True
-    while conn_open:
+    with conn:
+        while True:
+            data = conn.recv(16384)
 
-        req = HTTPRequest.from_bytes(conn.recv(16384))
+            # If client sends empty message it is assumed connection is closed
+            if len(data) == 0:
+                break
 
-        r = router.get_router() # Enclose the router in here, main program doesn't need to know
-        handler_tup = r.resolve(req.get_path(), req.get_request_type())
+            req = HTTPRequest.from_bytes(data)
 
-        # If path can't be resolved by router
-        if handler_tup is None:
-            resp = HTTPResponse(response_line=HTTPResponseLine(404, "Not Found"))
-        else:
-            handler, params = handler_tup
-            try:
-                resp = handler(params, req)
-            except TypeError as err:
-                raise TypeError(
-                    "Handlers must have the function signature handler(params: dict[str, Any], req: HTTPRequest) -> HTTPResponse"
-                ) from err
+            r = router.get_router() # Enclose the router in here, main program doesn't need to know
+            handler_tup = r.resolve(req.get_path(), req.get_request_type())
 
-        conn.send(resp.to_bytes())
+
+            # If path can't be resolved by router
+            if handler_tup is None:
+                resp = get_not_found_404_resp()
+            else:
+                handler, params = handler_tup
+                try:
+                    resp = handler(params, req)
+                except TypeError as err:
+                    raise TypeError(
+                        "Handlers must have the function signature handler(params: dict[str, Any], req: HTTPRequest) -> HTTPResponse"
+                    ) from err
+
+            conn_instruction = req.headers.get_header("Connection")
+
+            if conn_instruction == "close":
+                resp.headers.set_header("Connection", "close")
+                conn.send(resp.to_bytes())
+                break
+            else:
+                conn.send(resp.to_bytes())
+
+

@@ -22,8 +22,8 @@ def main():
 
     with socket.create_server(("localhost", 4221), reuse_port=True) as server:
         while True:
-            conn, add = server.accept()  # wait for client
-
+            conn, _ = server.accept()  # wait for client
+            print(f"threads active: {threading.active_count()}")
             threading.Thread(
                 target=req_resp_exchange, args=(conn,), daemon=True
             ).start()
